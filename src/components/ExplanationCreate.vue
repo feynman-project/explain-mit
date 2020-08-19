@@ -15,7 +15,7 @@
       </v-col>
 
       <!-- Text Editor -->
-      <TextEditor @update:html="html => this.html = html" :key="changeKeyToForceReset + 1"/>
+      <TextEditor @update:html="html => this.html = html" :editable="true" :key="changeKeyToForceReset + 1"/>
       <p class="red--text">{{ messageToUser }}</p>
       
       <div v-if="user" class="d-flex align-center">

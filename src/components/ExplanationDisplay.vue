@@ -4,14 +4,15 @@
       <!-- Text -->
       <template v-if="!isEditing"> 
         <h2 v-if="expl.title">{{ expl.title }}</h2>
-        <p v-html="expl.html"></p>
+        <TextEditor :injectedHtml="expl.html" :editable="false" ref="TextEditor"/>
+        <!-- <p v-html="expl.html" class="expl"></p> -->
       </template>
       <template v-else>
-        <TextEditor :injectedHtml="expl.html" ref="TextEditor"/>
+        <TextEditor :injectedHtml="expl.html" :editable="true" ref="TextEditor"/>
         <v-btn @click="updateExplanation()" color="secondary">
           SAVE EDIT
         </v-btn>
-      </template>
+</template>
       
       <!-- Doodle Video -->
       <RenderlessFetchStrokes v-if="expl.thumbnail"
@@ -165,11 +166,11 @@ export default {
       // this.$router.push(`/class/${this.$route.params.class_id}`);
       this.$root.$emit("show-snackbar", "Successfully deleted post, you might have to leave the page though");
     },
-  }
+  },
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .overlay-item {
   position: absolute; 
   top: 0;
@@ -179,5 +180,107 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+@import "@/assets/scss/variables.scss";
+ul[data-type="todo_list"] {
+  padding-left: 0;
+}
+li[data-type="todo_item"] {
+  display: flex;
+  flex-direction: row;
+}
+.todo-checkbox {
+  border: 2px solid black;
+  height: 0.9em;
+  width: 0.9em;
+  box-sizing: border-box;
+  margin-right: 10px;
+  margin-top: 0.3rem;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  border-radius: 0.2em;
+  background-color: transparent;
+  transition: 0.4s background;
+}
+.todo-content {
+  flex: 1;
+  > p:last-of-type {
+    margin-bottom: 0;
+  }
+  > ul[data-type="todo_list"] {
+    margin: .5rem 0;
+  }
+}
+li[data-done="true"] {
+  > .todo-content {
+    > p {
+      text-decoration: line-through;
+    }
+  }
+  > .todo-checkbox {
+    background-color: $color-black;
+  }
+}
+li[data-done="false"] {
+  text-decoration: none;
+}
+
+.expl pre {
+  &::before {
+    content: attr(data-language);
+    text-transform: uppercase;
+    display: block;
+    text-align: right;
+    font-weight: bold;
+    font-size: 0.6rem;
+  }
+  code {
+    .hljs-comment,
+    .hljs-quote {
+      color: #999999;
+    }
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-attribute,
+    .hljs-tag,
+    .hljs-name,
+    .hljs-regexp,
+    .hljs-link,
+    .hljs-name,
+    .hljs-selector-id,
+    .hljs-selector-class {
+      color: #f2777a;
+    }
+    .hljs-number,
+    .hljs-meta,
+    .hljs-built_in,
+    .hljs-builtin-name,
+    .hljs-literal,
+    .hljs-type,
+    .hljs-params {
+      color: #f99157;
+    }
+    .hljs-string,
+    .hljs-symbol,
+    .hljs-bullet {
+      color: #99cc99;
+    }
+    .hljs-title,
+    .hljs-section {
+      color: #ffcc66;
+    }
+    .hljs-keyword,
+    .hljs-selector-tag {
+      color: #6699cc;
+    }
+    .hljs-emphasis {
+      font-style: italic;
+    }
+    .hljs-strong {
+      font-weight: 700;
+    }
+  }
 }
 </style>

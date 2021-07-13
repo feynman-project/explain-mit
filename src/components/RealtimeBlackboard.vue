@@ -2,52 +2,60 @@
   <!-- 100vh so the div remains at the same height even if the blackboard is very tall
     meaning the toolbar can succesfully pin to the top
    -->
-   <!-- overflow-x: auto; -->
-  <div style="
-    height: 100vh;
-    overflow: auto;
-  ">
-    <v-container v-if="!hasFetchedBlackboardData" style="height: 100%;">
-      <!-- TODO: make it full width and height -->
-      <!-- <v-skeleton-loader :attrs="{ class: 'mb-6', boilerplate: true, elevation: 2 }" type="image" min-height="1200" width="1200">
-      
-      </v-skeleton-loader> -->
-    </v-container>
+    <!-- <div style="
+      height: 100vh;
+      overflow: auto;
+    "> -->
+
+    <!-- <div style="overflow-y: auto; overflow-x: none"> -->
+  <div v-intersect.once="{ handler: syncBlackboardWithDb, threshold: 0.4 }">
+      <div class="overlay-item" v-if="isFetchingStrokes">
+        <v-progress-linear indeterminate height="4" color="cyan darken-1"/>
+      </div>
+    <!-- 
+      Unexpected behavior: without the v-container placeholder, when all the strokes appear on all the blackboards,
+      there is severe lag. But if the strokes are fetched properly before rendering blackboards, the lag disappears.
+     -->
+    <!-- <v-container v-if="!hasFetchedBlackboardData" style="height: 100%;">
+
+    </v-container> -->
 
     <!-- Blackboard -->
     <!-- @update:background-image="image => updateBlackboardBackground(image)" -->
     <!-- QUICKFIX: record-start will change blackboard from infinite to horizontal mode -->
-    <Blackboard v-else
+    <!-- @record-end="handleRecordEnd()" -->
+
+    <!-- v-if="hasFetchedBlackboardData" -->
+    <Blackboard 
       :backgroundImage="backgroundImage" 
       :strokesArray="strokesArray" @stroke-drawn="stroke => handleNewlyDrawnStroke(stroke)"
       :key="incrementKeyToDestroyComponent"
-      :willDownloadPDF="willDownloadPDF"
       @mounted="({ getThumbnailBlob }) => blackboard.getThumbnailBlob = getThumbnailBlob"
       @update:currentTime="currentTime => blackboard.currentTime = currentTime"
       @update:audioBlob="blob => blackboard.audioBlob = blob"
-      @record-end="handleRecordEnd()"
+      @record-end="saveVideo()"
     >
       <!-- TODO: don't let user wipe board / set background while recording -->
       <!-- Set Background (overrides the normal behavior) -->
       <template v-slot:set-background-button-slot="{ closeMenu }">
-        <BasePopupButton actionName="Save blackboard" @action-do="uploadExplanation()">
+        <v-list-item @click.stop="saveAnimation()">
+          <v-icon left color="secondary">mdi-content-save</v-icon>Save
+        </v-list-item>
+        <!-- <BasePopupButton actionName="Save blackboard" @action-do="uploadExplanation()">
           <template v-slot:activator-button="{ on, openPopup }">
             <v-list-item @click.stop="openPopup(); closeMenu();">
-              <v-icon left color="secondary">mdi-content-save</v-icon>Save board to library
+              <v-icon left color="secondary">mdi-content-save</v-icon>Save
             </v-list-item>
           </template>
           
           <template v-slot:message-to-user>
             <v-text-field v-model="explTitle" placeholder="Type the title here..."/>
           </template> 
-        </BasePopupButton>
+        </BasePopupButton> -->
 
-        <v-list-item @click="willDownloadPDF = !willDownloadPDF">
-          <v-icon left color="orange">mdi-file-pdf</v-icon>Download board as PDF
-        </v-list-item>
-
-        <v-list-item @click="$refs.fileInput.click()">
-          <v-icon left color="blue">mdi-image</v-icon>Upload background
+        <v-list-item @click="(backgroundImage.blob || backgroundImage.downloadURL) ? resetBackgroundImage() : $refs.fileInput.click()">
+          <v-icon left :color="(backgroundImage.blob || backgroundImage.downloadURL) ? 'red' : 'blue'">mdi-image</v-icon>
+          {{ (backgroundImage.blob || backgroundImage.downloadURL) ? 'Remove' : 'Background' }} 
           <input 
             @change="e => handleWhatUserUploaded(e)" 
             style="display: none" 
@@ -55,12 +63,6 @@
             ref="fileInput"
           >
         </v-list-item>
-
-        <template v-if="backgroundImage">
-          <v-list-item @click="resetBackgroundImage()">
-            <v-icon left color="red">mdi-file-remove</v-icon> Remove background
-          </v-list-item>
-        </template>
       </template>
 
       <!-- Wipe Board (overrides the normal, offline wiping behavior) -->
@@ -68,7 +70,7 @@
         <BasePopupButton actionName="Wipe strokes" @action-do="deleteAllStrokesFromDb();">
           <template v-slot:activator-button="{ on, openPopup }">
             <v-list-item @click.stop="openPopup(); closeMenu();">
-              <v-icon left color="red">mdi-delete</v-icon> Wipe strokes
+              <v-icon left color="red">mdi-delete</v-icon> Wipe
             </v-list-item>
           </template>
           <template v-slot:message-to-user>
@@ -87,7 +89,7 @@
     </Blackboard> 
   
     <!-- Popup for saving blackboard -->
-    <v-dialog v-model="dialog" persistent max-width="600">
+    <!-- <v-dialog v-model="dialog" persistent max-width="600">
       <v-card>
         <v-card-title class="headline">Save your recorded explanation?</v-card-title>
         <v-card-text>
@@ -103,7 +105,7 @@
           </v-btn>
         </v-card-actions>
       </v-card>
-    </v-dialog>
+    </v-dialog> -->
   </div>
 </template>
 
@@ -132,6 +134,7 @@ import db from "@/database.js";
 import { mapState } from "vuex"; 
 import { getRandomId } from "@/helpers.js";
 import { MASSIVE_MODE_DIMENSIONS } from "@/CONSTANTS.js";
+import pdfjs from 'pdfjs-dist'
 
 export default {
   props: {
@@ -151,6 +154,7 @@ export default {
   },
   data () {
     return {
+      isFetchingStrokes: false,
       hasFetchedStrokesFromDb: false,
       hasFetchedBackgroundImage: false,
       strokesArray: [],
@@ -172,9 +176,7 @@ export default {
       messagesOpen: false,
       // new code
       incrementKeyToDestroyComponent: 0,
-      isMenuOpen: false,
-      
-      willDownloadPDF: false
+      isMenuOpen: false
     };
   },
   computed: {
@@ -189,25 +191,65 @@ export default {
       return this.blackboardRef.collection("strokes");
     }
   },
-  created () {
-    this.keepSyncingBoardWithDb(); 
-    // sync backgroundImage: if your friend changes the background image, you'll detect it here
-    this.removeBackgroundImageListener = this.blackboardRef.onSnapshot(blackboardDoc => {
+  destroyed () {
+    if (this.removeBlackboardStrokesListener) this.removeBlackboardStrokesListener();
+    if (this.removeBackgroundImageListener) this.removeBackgroundImageListener(); 
+  },
+  methods: {
+    syncBlackboardWithDb (entries, observer, isIntersecting) {
+      if (isIntersecting) {
+        this.keepSyncingStrokesWithDb()
+        this.keepSyncingBackgroundWithDb()
+        this.isFetchingStrokes = true
+      } 
+    },
+    async saveVideo () {
+      this.$root.$emit('show-snackbar', "Uploading the audio file...")
+      const basicUserInfo = {
+        email: this.user.email,
+        uid: this.user.uid,
+        firstName: this.user.firstName,
+        lastName: this.user.lastName
+      }
+
+      const audioDownloadURL = await this.$_saveToStorage(getRandomId(), this.blackboard.audioBlob)
+      console.log('audioDownloadURL =', audioDownloadURL)
+
+      await this.blackboardRef.update({
+        creator: basicUserInfo,
+        date: new Date().toISOString(),
+        views: 0,
+        audioDownloadURL
+      })      
+      this.$root.$emit('show-snackbar', 'Successfully uploaded.')
+    },
+    async saveAnimation () {
+      const basicUserInfo = {
+        email: this.user.email,
+        uid: this.user.uid,
+        firstName: this.user.firstName,
+        lastName: this.user.lastName
+      }
+      
+      await this.blackboardRef.update({
+        creator: basicUserInfo,
+        date: new Date().toISOString(),
+        views: 0
+      })      
+      this.$root.$emit('show-snackbar', 'Converted to animation.')
+    },
+    keepSyncingBackgroundWithDb () {
+      this.removeBackgroundImageListener = this.blackboardRef.onSnapshot(blackboardDoc => {
       // update `backgroundImage` prop so BlackboardCoreDrawing updates     
       this.backgroundImage = {
         downloadURL: blackboardDoc.data().backgroundImageDownloadURL,
         blob: null
       };
-      if (!this.hasFetchedBackgroundImage) {
-        this.hasFetchedBackgroundImage = true; 
-      }
-    });
-  },
-  destroyed () {
-    this.removeBlackboardStrokesListener();
-    this.removeBackgroundImageListener(); 
-  },
-  methods: {
+        if (!this.hasFetchedBackgroundImage) {
+          this.hasFetchedBackgroundImage = true; 
+        }
+      });
+    },
     resetBackgroundImage () {
       this.blackboardRef.update({
         backgroundImageDownloadURL: ""
@@ -225,7 +267,7 @@ export default {
           that other people made during the process (if any). 
       @see explain.mit.edu/class/mDbUrvjy4pe8Q5s5wyoD/posts/k8TLymX9Say5EUoCdxEp
     */
-    keepSyncingBoardWithDb () {
+    keepSyncingStrokesWithDb () {
       this.removeBlackboardStrokesListener = this.strokesRef.orderBy("timestamp").onSnapshot(async snapshot => {
         // CASE 1: wipe board operation
         const removedDocs = snapshot.docChanges().filter(change => change.type === "removed"); 
@@ -267,7 +309,8 @@ export default {
           }
         }
         if (!this.hasFetchedStrokesFromDb) { 
-          this.hasFetchedStrokesFromDb = true;
+          this.hasFetchedStrokesFromDb = true
+          this.isFetchingStrokes = false
           this.$root.$emit("show-snackbar", `Fetched ${this.strokesArray.length} strokes.`)
         }
       });
@@ -332,10 +375,9 @@ export default {
       }
     },
     async pdfToImage (src) {
-      const pdfjs = require("pdfjs-dist/build/pdf.js");
-      // Not sure why the worker in node's directory is not working
-      // Some online forums do point to the way webpack resolves the package paths, and suggest using additional loaders
-      pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.4.456/pdf.worker.min.js";
+      // prevent issue: htts://stackoverflow.com/a/63406257/7812829
+      pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.3.200/pdf.worker.min.js";
+
       pdfjs.getDocument(URL.createObjectURL(src)).promise.then(doc=> {
         doc.getPage(1).then((page) => {
           // Render the page on a Node canvas with 100% scale.
@@ -442,11 +484,11 @@ export default {
       // ask if the user wants to save/discard the recorded explanation 
       this.dialog = true; 
     },
-    saveVideo () {
-      this.dialog = false; 
-      this.uploadExplanation(); 
-      this.incrementKeyToDestroyComponent += 1; 
-    },
+    // saveVideo () {
+    //   this.dialog = false; 
+    //   this.uploadExplanation(); 
+    //   this.incrementKeyToDestroyComponent += 1; 
+    // },
     discardAudio () {
       this.dialog = false; 
       this.incrementKeyToDestroyComponent += 1; 

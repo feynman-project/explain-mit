@@ -48,7 +48,15 @@
           <v-icon slot="append" color="accent lighten-2" small>mdi-fast-forward</v-icon>
         </v-select>
       </v-col>
-      <v-btn @click.stop="$_toggleFullscreen()"><v-icon>mdi-fullscreen</v-icon></v-btn>
+
+      <v-btn @click.stop="$emit('delete')">
+        <v-icon>mdi-delete</v-icon>
+      </v-btn>
+
+      <v-btn @click.stop="$emit('edit')">
+        <v-icon>mdi-pencil</v-icon>
+      </v-btn>
+      <!-- <v-btn @click.stop="$_toggleFullscreen()"><v-icon>mdi-fullscreen</v-icon></v-btn> -->
     </div>
   </div>
 </div>
@@ -140,8 +148,10 @@ export default {
     resizeVideo () {
       const { CanvasWrapper, VideoWrapper } = this.$refs;
       VideoWrapper.style.width = "100%";
-      const availableWidth = VideoWrapper.offsetWidth - 20; 
-      const availableHeight = window.innerHeight - navbarHeight - audioPlayerHeight - 120;
+      const availableWidth = VideoWrapper.offsetWidth
+      const heightOfGapToShowGlimpseOfNextBoard = 30 // the distance between blackboards is half i.e. 10
+      const availableHeight = window.innerHeight - heightOfGapToShowGlimpseOfNextBoard
+      
       let videoHeight; 
       let videoWidth; 
 
@@ -280,7 +290,7 @@ export default {
   width: 100%;
   height: 100%;
   z-index: -1;
-  background-color: rgb(62, 66, 66);
+  background-color: rgb(46, 49, 49);
 }
 .animation-controls {
   background: #eee;

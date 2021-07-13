@@ -1,16 +1,18 @@
 <template>
-  <div class="blackboard" elevation="1">
-    <slot name="canvas-toolbar"
-      :isFullScreen="isFullScreen"
-      :handleImageFile="handleImageFile"
-      :resetBoard="resetBlackboard"
-      :toggleFullScreen="toggleFullScreen"
-      :undoPenStroke="eraseStroke"
+  <!-- Make BlackboardCoreDrawing a positioned element so the toolbar (position absolute) will pin itself to it -->
+  <div style="position: relative;" elevation="1">
+    <div ref="BlackboardWrapper" class="blackboard-wrapper" 
+      style="position: relative; margin: auto;"
     >
+      <slot name="canvas-toolbar"
+        :isFullScreen="isFullScreen"
+        :handleImageFile="handleImageFile"
+        :resetBoard="resetBlackboard"
+        :toggleFullScreen="toggleFullScreen"
+        :undoPenStroke="eraseStroke"
+      >
 
-    </slot>
-
-    <div ref="BlackboardWrapper" class="blackboard-wrapper" style="position: relative;">
+      </slot>
       <canvas v-if="! isReadOnly"
         ref="FrontCanvas" class="front-canvas"
         @touchstart="e => touchStart(e)"
@@ -71,11 +73,11 @@
  */
 import BlackboardToolBar from "@/components/BlackboardToolBar.vue";
 import CanvasDrawMixin from "@/mixins/CanvasDrawMixin.js";
-import CanvasDownloadPDFMixin from "@/mixins/CanvasDownloadPDFMixin.js";
 import { BlackboardTools, MASSIVE_MODE_DIMENSIONS } from "@/CONSTANTS.js";
 import { getRandomId, isIosSafari } from "@/helpers.js";
 import { mapState } from "vuex";
 import _ from "lodash";
+import pdfjs from 'pdfjs-dist'
 
 export default {
   props: {
@@ -94,19 +96,10 @@ export default {
     isReadOnly: {
       type: Boolean,
       required: true
-    },
-    width: {
-      type: Number,
-      required: true
-    },
-    height: {
-      type: Number,
-      required: true
     }
   },
   mixins: [
-    CanvasDrawMixin,
-    CanvasDownloadPDFMixin
+    CanvasDrawMixin
   ],
   components: { 
     BlackboardToolBar
@@ -164,13 +157,19 @@ export default {
         // DO NOTHING: I created the stroke in by drawing and the client only knows about it now
       }
       else if (m < n) {
-        for (let i = m; i < n; i++) {
-          const newStroke = this.strokesArray[i];
-          this.$_drawStroke(
-            newStroke, 
-            newStroke.startTime !== newStroke.endTime ? this.$_getPointDuration(newStroke) : null // instantly or smoothly
-          );
-          this.localStrokesArray.push(newStroke);
+        if (m === 0) { // blackboard just finished loading i.e. there can be 500 strokes
+          this.$_drawStrokesInstantly()
+          this.localStrokesArray = [...this.strokesArray]
+        }
+        else {
+          for (let i = m; i < n; i++) {
+            const newStroke = this.strokesArray[i];
+            this.$_drawStroke(
+              newStroke, 
+              newStroke.startTime !== newStroke.endTime ? this.$_getPointDuration(newStroke) : null // instantly or smoothly
+            );
+            this.localStrokesArray.push(newStroke);
+          }
         }
       }
       else { 
@@ -218,12 +217,22 @@ export default {
     }
   },
   mounted () {
-    this.initializeCanvas();
+    this.canvas = this.$refs.FrontCanvas;
+    this.bgCanvas = this.$refs.BackCanvas;
+    this.ctx = this.canvas.getContext("2d");
+    this.bgCtx = this.bgCanvas.getContext("2d");
+
+    this.resizeBlackboard(); // resizeBlackboard also re-renders everything
+    this.resizeBlackboard = _.debounce(this.resizeBlackboard, 100); 
+    window.addEventListener("resize", this.resizeBlackboard);
     
     // explicitly expose `getThumbnailBlob` to client components that use <BlackboardCoreDrawing/>
     this.$emit("mounted", { 
       getThumbnailBlob: this.getThumbnailBlob,
     });
+  },
+  destroyed () {
+    window.removeEventListener("resize", this.resizeBlackboard);
   },
   methods: {
     /** 
@@ -237,14 +246,6 @@ export default {
       newStroke.id = getRandomId(); 
       this.localStrokesArray.push(newStroke);
       this.$emit("stroke-drawn", newStroke);
-    },
-    initializeCanvas () {
-      this.canvas = this.$refs.FrontCanvas;
-      this.bgCanvas = this.$refs.BackCanvas;
-      this.ctx = this.canvas.getContext("2d");
-      this.bgCtx = this.bgCanvas.getContext("2d");
-
-      this.resizeBlackboard(); // resizeBlackboard also re-renders everything
     },
     /**
      * 
@@ -444,6 +445,26 @@ export default {
      * the function has to also re-render all the pens strokes and background image. 
      */
     resizeBlackboard () {      
+      const { BlackboardWrapper } = this.$refs; 
+      BlackboardWrapper.style.width = "100%"; 
+      BlackboardWrapper.style.height = "95%"; // quick-fix
+
+      // calculate the new
+      let videoWidth 
+      let videoHeight
+  
+      const heightOfGapToShowGlimpseOfNextBoard = 30 // the distance between blackboards is half i.e. 10
+      const availableWidth = BlackboardWrapper.clientWidth
+      const availableHeight = window.innerHeight - heightOfGapToShowGlimpseOfNextBoard
+      const aspectRatio = 4/3;
+      if (availableWidth * (1/aspectRatio) < availableHeight) {
+        videoWidth = availableWidth;
+        videoHeight = videoWidth * (1/aspectRatio);
+      } else {
+        videoHeight = availableHeight;
+        videoWidth = videoHeight * aspectRatio;
+      }
+
       const changeInternalAndExternalDimensionsOfBlackboard = ({ newWidth, newHeight }) => {
         this.canvas.style.width = `${newWidth}px`; 
         this.canvas.style.height = `${newHeight}px`;
@@ -454,15 +475,14 @@ export default {
         this.bgCanvas.style.height = `${newHeight}px`;
         this.bgCanvas.style.scrollWidth = `${newWidth}px`;
         this.bgCanvas.style.scrollHeight = `${newHeight}px`;
+
+        // fixes why the blackboard won't center issue and toolbar is not there
+        BlackboardWrapper.style.height = `${newHeight}px`
+        BlackboardWrapper.style.width = `${newWidth}px`
       }
-
-      const { BlackboardWrapper } = this.$refs; 
-      BlackboardWrapper.style.width = "100%"; 
-      BlackboardWrapper.style.height = "100%"; 
-
       changeInternalAndExternalDimensionsOfBlackboard({
-        newWidth: this.width,
-        newHeight: this.height
+        newWidth: videoWidth,
+        newHeight: videoHeight
       });
 
       // below is necessary even though the same rescale logic resides in "startNewStroke()"
@@ -470,15 +490,13 @@ export default {
       this.$_rescaleCanvas();
       this.$_drawStrokesInstantly();
 
-      // re-render background
-      if (!this.backgroundImage) {
-        return; 
-      }
-      const { blob, downloadURL } = this.backgroundImage;
-      if (blob || downloadURL) {
-        this.$_renderBackground(
-          blob ? URL.createObjectURL(blob) : downloadURL
-        );
+      if (this.backgroundImage) {
+        const { blob, downloadURL } = this.backgroundImage;
+        if (blob || downloadURL) {
+          this.$_renderBackground(
+            blob ? URL.createObjectURL(blob) : downloadURL
+          );
+        }
       }
     },
     // HANDLE BACKGROUND IMAGE
@@ -505,9 +523,8 @@ export default {
       this.$emit("update:background-image", { blob: imageFile });
     },
     async convertPdfToImageFile (src) {
-      // TODO: fix npm errors and use normal imports
-      const pdfjs = require("pdfjs-dist/build/pdf.js");
-      pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.4.456/pdf.worker.min.js";
+      // prevent issue: htts://stackoverflow.com/a/63406257/7812829
+      pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.3.200/pdf.worker.min.js";
       
       const doc = await pdfjs.getDocument(URL.createObjectURL(src)).promise;
       const page = await doc.getPage(1);

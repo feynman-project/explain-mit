@@ -7,9 +7,10 @@ export const VERTICAL_MODE_WIDTH = 800;
 export const PPT_SLIDE_RATIO = 3/4; 
 export const PDF_RATIO = 11/8.5; 
 
+// 4:3 ratio looks better than the widescreen 16:9 
 export const MASSIVE_MODE_DIMENSIONS = {
-  HEIGHT: 1600,
-  WIDTH: 1600
+  HEIGHT: 900,
+  WIDTH: 1200
 };
 
 export const ERASER_STROKE_WIDTH = 25;

@@ -87,7 +87,7 @@
     <v-dialog v-model="isRenameRoomPopupOpen" width="500">
       <v-card>
         <v-card-title>
-          Rename the room to designate it for another purpose
+          Rename
         </v-card-title>
 
         <v-card-text>
@@ -98,15 +98,15 @@
           <v-spacer/>
           <v-btn @click="isRenameRoomPopupOpen = false">CANCEL</v-btn>
           <v-btn @click="renameRoom(); isRenameRoomPopupOpen = false;" color="black" dark>
-            Rename room
+            Rename
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- INFINITE TUTORING -->
-    <v-dialog v-model="isInfiniteTutoringPopupOpen">
-      <InfiniteTutoring/>
+    <v-dialog v-model="isInviteFriendsPopupOpen" max-width="800">
+      <InviteFriends v-if="isInviteFriendsPopupOpen"/>
     </v-dialog> 
 
     <portal to="table-level-actions">
@@ -129,10 +129,13 @@
         </template>
         
         <v-list>
-          <v-list-item @click="isInfiniteTutoringPopupOpen = true">
-            <v-icon left color="pink">mdi-radioactive</v-icon> Infinite tutoring
+          <v-list-item @click="isInviteFriendsPopupOpen = true">
+            <v-icon left color="purple">mdi-account-plus</v-icon> 
+            <div style="font-color: purple">Request help</div>
           </v-list-item> 
-          
+
+          <v-divider/>
+        
           <v-menu
             v-model="isChatOpen"
             :close-on-content-click="false"
@@ -147,7 +150,7 @@
               >
                 <v-list-item v-on="on">
                   <v-icon class="mr-2" color="green">mdi-chat</v-icon>
-                  Open this room's chat
+                  Chat
                 </v-list-item>
                 <!-- <BaseButton :on="on" stopPropagation icon="mdi-chat" color="black" small>
                     
@@ -171,31 +174,37 @@
           </v-menu>
 
           <v-list-item @click="isRenameRoomPopupOpen = true">
-            <v-icon left color="blue">mdi-pencil</v-icon> Rename this table
+            <v-icon left color="blue">mdi-pencil</v-icon> Rename
           </v-list-item>
 
           <v-list-item>
-            <!-- <v-icon left color="blue">mdi-message-alert</v-icon> -->
-            <v-chip color="blue" class="white--text" @click="newRoomStatus = 'Help!'; updateRoomStatus(); isRoomStatusPopupOpen = false;">Help!</v-chip>
-            <v-chip color="blue" class="white--text" @click="newRoomStatus = 'Done.'; updateRoomStatus(); isRoomStatusPopupOpen = false;">Done.</v-chip>
-            <v-chip color="blue" class="white--text" @click="newRoomStatus = ''; updateRoomStatus(); isRoomStatusPopupOpen = false;">(reset)</v-chip>
+            <!-- <v-chip color="blue" class="white--text" @click="newRoomStatus = 'Requesting help'; updateRoomStatus(); isRoomStatusPopupOpen = false;">Requesting help</v-chip> -->
+            <v-chip color="blue" class="white--text" @click="toggleCollabStatus()">Down to collaborate</v-chip>
+            <!-- <v-chip color="blue" class="white--text" @click="newRoomStatus = ''; updateRoomStatus(); isRoomStatusPopupOpen = false;">(reset)</v-chip> -->
           </v-list-item>
 
-          <v-list-item @click="isSaveBoardsPopupOpen = true" :loading="isSavingAllBoards">
+          <!-- <v-list-item @click="isSaveBoardsPopupOpen = true" :loading="isSavingAllBoards">
             <v-icon left color="cyan">mdi-content-save-all</v-icon> Save sequence of boards
+          </v-list-item> -->
+
+          <!-- DELETE OPERATIONS ARE RARE AND REQUIRE TWO-THREE CLICKS -->
+          <v-list-item>
+            <v-icon left color="red darken-5">mdi-delete</v-icon> 
+            Delete
           </v-list-item>
 
-          <v-list-item @click="isWipeBoardsPopupOpen = true" :loading="isClearingAllBoards">
+          <!-- <v-list-item @click="isWipeBoardsPopupOpen = true" :loading="isClearingAllBoards">
             <v-icon left color="red darken-5">mdi-delete-alert</v-icon> Wipe all boards in table
-          </v-list-item>
+          </v-list-item> -->
           
-          <v-list-item @click="isClearPDFsPopupOpen = true" :loading="isClearingAllPDFs">
+          <!-- <v-list-item @click="isClearPDFsPopupOpen = true" :loading="isClearingAllPDFs">
             <v-icon left color="red darken-5">mdi-file-remove-outline</v-icon> Wipe all backgrounds
-          </v-list-item>
+          </v-list-item> -->
+
           <!-- Can't delete the default room -->
-          <v-list-item :disabled="roomID === classID" @click="deleteThisRoom()">
+          <!-- <v-list-item :disabled="roomID === classID" @click="deleteThisRoom()">
             <v-icon left color="red">mdi-delete</v-icon> Delete this room
-          </v-list-item>
+          </v-list-item> -->
         </v-list>
       </v-menu>
     </portal>
@@ -205,93 +214,156 @@
     
     </portal-target>
 
+    <portal to="right-side-of-my-participant-name">
+      <!-- For switching between different blackboards -->
+      <!-- item-color:  -->
+      <!-- active-class:  -->
+      <!-- hide-details: eliminates unnecessary bottom padding -->
+      <div v-if="room" class="d-flex">
+        <div v-if="currentBoardID">
+          <!-- `click.native.stop` is the workaround for the menu causing the entire page to reload https://github.com/vuetifyjs/vuetify/issues/3333#issuecomment-366832774 -->
+          <v-menu @click.prevent.stop fixed offset-y bottom>
+            <template v-slot:activator="{ on }">
+              <!-- `click.prevent.stop -->
+              <v-btn v-on="on" @click.prevent.stop height="30" text tile class="px-0" 
+                :style="`text-align: center; padding-top: 0; font-size: 1.1rem; font-weight: 400;`" max-width="180"
+              >
+                <!-- The board switch button looks like a blackboard itself -->
+                <span class="`d-inline-block text-truncate" 
+                    :style="
+                      `color: ${currentTool.color}; width: 42px; height: 32.5px; display: flex !important; justify-content: center; align-items: center; background-color: rgb(62, 66, 66)`
+                ">
+                  {{ getBoardNumberFromID(currentBoardID) }}
+                </span>
+                <v-spacer/>
+                <v-icon>mdi-menu-down</v-icon>
+              </v-btn>
+            </template>
 
-      <portal to="right-side-of-my-participant-name">
-        <!-- For switching between different blackboards -->
-        <!-- item-color:  -->
-        <!-- active-class:  -->
-        <!-- hide-details: eliminates unnecessary bottom padding -->
-        <div v-if="room" class="d-flex">
-          <div v-if="currentBoardID">
-            <!-- `click.native.stop` is the workaround for the menu causing the entire page to reload https://github.com/vuetifyjs/vuetify/issues/3333#issuecomment-366832774 -->
-            <v-menu @click.prevent.stop fixed offset-y bottom>
-              <template v-slot:activator="{ on }">
-                <!-- `click.prevent.stop -->
-                <v-btn v-on="on" @click.prevent.stop height="30" text tile class="px-0" 
-                  :style="`text-align: center; padding-top: 0; font-size: 1.1rem; font-weight: 400;`" max-width="180"
-                >
-                  <!-- The board switch button looks like a blackboard itself -->
-                  <span class="`d-inline-block text-truncate" 
-                      :style="
-                        `color: ${currentTool.color}; width: 38px; height: 30px; display: flex !important; justify-content: center; align-items: center; background-color: rgb(62, 66, 66)`
-                  ">
-                    {{ getBoardNumberFromID(currentBoardID) }}
-                  </span>
-                  <v-spacer/>
-                  <v-icon>mdi-menu-down</v-icon>
-                </v-btn>
+            <v-list style="overflow-y: auto; max-height: 400px" class="py-0">
+              <template v-for="(boardID, i) in room.blackboards">
+                <Drag :transfer-data="{ draggedFrom: i } " :key="boardID">
+                  <Drop @drop="handleDrop({ droppedTo: i }, ...arguments)">
+                    <v-list-item 
+                      @click="$store.commit('SET_CURRENT_BOARD_ID', boardID)"
+                      style="background-color: rgb(62, 66, 66);"
+                      class="px-0"
+                    >
+                      <div :style="`margin: auto; color: ${currentTool.color};`">
+                        {{ getBoardNumberFromID(boardID) }}
+                      </div>
+                    </v-list-item>
+                    <v-divider class="white--text"/>
+                  </Drop>
+                </Drag>
               </template>
 
-              <v-list style="overflow-y: auto; max-height: 400px" class="py-0">
-                <template v-for="boardID in room.blackboards">
-                  <v-list-item 
-                    @click="$store.commit('SET_CURRENT_BOARD_ID', boardID)"
-                    :key="boardID"
-                    style="background-color: rgb(62, 66, 66);"
-                    class="px-0"
-                  >
-                    <div :style="`margin: auto; color: ${currentTool.color};`">
-                      {{ getBoardNumberFromID(boardID) }}
-                    </div>
-                  </v-list-item>
-                  <v-divider class="white--text" :key="boardID + 'divider'"/>
-                </template>
-
-                <BaseButton @click="createNewBoard()" icon="mdi-plus" color="white" style="background-color: rgb(62, 66, 66);">
-                  New board
-                </BaseButton>
-              </v-list>
-            </v-menu>
-          </div>
+              <BaseButton @click="createNewBoard()" icon="mdi-plus" color="white" style="background-color: rgb(62, 66, 66);">
+                New board
+              </BaseButton>
+            </v-list>
+          </v-menu>
         </div>
-      </portal>
+      </div>
+    </portal>
 
-    <!-- The actual blackboards -->
-    <div id="room" class="room-wrapper">
-      <v-tabs-items v-if="blackboardRefs.length !== 0 && room && currentBoardID" 
-        :value="currentBoardID" 
-        touchless
-      >
-      <!-- re-render the blackboard everytime someone switches -->
-        <v-tab-item v-for="(boardID, i) in room.blackboards"
-          :value="boardID" :key="i"
-        >
-          <!-- Screensharing becomes the background of the blackboard -->
-          <!-- TODO: fix this -->
-          <div id="screenshare-container" style="position: fixed; z-index: 1;">
 
-          </div>
+    <!-- EDIT TITLE AND DESCRIPTION -->
+    <v-dialog :value="isEditPopupOpen" width="600">
+      <v-card>
+        <v-card-title>Edit explanation</v-card-title>
+        <v-card-text>
+          <v-text-field v-model="newTitle" placeholder="title"/>
 
-          <RealtimeBlackboard v-if="boardID === currentBoardID"
-            :blackboardRef="blackboardRefs[i]"
-            id="current-blackboard"
+          <ReusableTextEditor 
+            v-model="newDescriptionHtml"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer/>
+          <v-btn @click="isEditPopupOpen = false">CLOSE</v-btn>
+          <v-btn @click="editTitleAndDescription()">SAVE</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <template v-if="blackboardRefs.length !== 0 && room">
+      <template v-for="(boardID, i) in room.blackboards">
+        <RenderlessFetchBlackboardDoc
+          :blackboardRef="blackboardRefs[i]"
+          :key="boardID"
+          v-slot="{ creator, date, audioDownloadURL, backgroundImageDownloadURL, title, descriptionHtml }"
+        >  
+
+          <!-- If blackboard is already saved/recorded -->
+          <RenderlessFetchStrokes v-if="date && creator"
+            :strokesRef="blackboardRefs[i].collection('strokes')"
+            :imageDownloadUrl="backgroundImageDownloadURL"
+            v-slot="{ fetchStrokes, strokesArray, imageBlob, isLoading }"
           >
-            <template v-slot:blackboard-toolbar>
-              <BaseButton @click="$store.commit('SET_IS_BOARD_FULLSCREEN', !isBoardFullscreen)" 
-                :icon="isBoardFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" 
-                color="white" small 
-              />
-            </template>
-          </RealtimeBlackboard>
-        </v-tab-item>
-      </v-tabs-items>
-    </div>
+            <div style="position: relative;" v-intersect.once="{
+              handler (entries, observer, isIntersecting) {
+                if (isIntersecting) {
+                  fetchStrokes(); 
+                } 
+              },
+              options: {
+                threshold: 0.5
+              }
+            }"
+            > 
+              <template>
+                <v-card>
+                  <v-card-title v-if="title" style="font-size: 1.6rem">
+                    {{ title }}
+                  </v-card-title>
+                  <v-card-text>
+                    <div v-if="descriptionHtml" class="mb-5 html-paragraph-styles"
+                      v-html="descriptionHtml"
+                    />
+                    <template v-if="strokesArray.length > 0">
+                      <DoodleVideo v-if="audioDownloadURL"
+                        :strokesArray="strokesArray"
+                        :imageBlob="imageBlob"
+                        :audioUrl="audioDownloadURL"
+                        :aspectRatio="4/3"
+                        style="margin-top: 5px"
+                        @edit="showEditPopup(blackboardRefs[i], title, descriptionHtml)"
+                        @delete="deleteVideo({ audioDownloadURL, creator, videoRef: blackboardRefs[i] })"
+                      />
+                      <DoodleAnimation v-else
+                        :strokesArray="strokesArray"
+                        :backgroundUrl="backgroundImageDownloadURL"
+                        :aspectRatio="4/3"
+                        style="margin-top: 5px"
+                        @edit="showEditPopup(blackboardRefs[i], title, descriptionHtml)"
+                        @delete="deleteAnimation({ creator, animationRef: blackboardRefs[i] })"
+                      />
+                    </template>
+                  </v-card-text>
+                </v-card>
+              </template>
+            </div>
+          </RenderlessFetchStrokes>
+
+          <RealtimeBlackboard v-else
+            :blackboardRef="blackboardRefs[i]" 
+            :key="boardID"
+            style="margin-top: 5px"
+          />
+        </RenderlessFetchBlackboardDoc>
+      </template>
+    </template>
   </div>
 </template>
 
 <script>
 /**
- * CORRECTNESS ARGUMENT
+ *  TODO: 
+ *    - Confirm exit popup so you don't interrupt a long audio recording because of a misclick/mis-swipe
+ * 
+ * 
+ *  CORRECTNESS ARGUMENT
  * 
  * Because RealtimeRoom is rendered by a <router-view :key="$route..."/> component
  * it will be properly destroyed, and so its children components don't require destroy keys.
@@ -301,6 +373,7 @@
  * You immediately kill all possibilities of anything. I can never emphasize enough.
  * 
  */
+
 
 import firebase from "firebase/app";
 import "firebase/firestore";
@@ -314,7 +387,13 @@ import RealtimeBlackboard from "@/components/RealtimeBlackboard.vue";
 import { getRandomId } from "@/helpers.js";
 import VideoConferenceRoom from "@/components/VideoConferenceRoom.vue";
 import ZoomChat from "@/components/ZoomChat.vue";
-import InfiniteTutoring from "@/components/InfiniteTutoring.vue"; 
+import InviteFriends from "@/components/InviteFriends.vue"; 
+import DoodleAnimation from '@/components/DoodleAnimation.vue'
+import DoodleVideo from '@/components/DoodleVideo.vue'
+import RenderlessFetchBlackboardDoc from '@/components/RenderlessFetchBlackboardDoc'
+import RenderlessFetchStrokes from '@/components/RenderlessFetchStrokes.vue'
+import ReusableTextEditor from '@/components/ReusableTextEditor.vue'
+import { Drag, Drop } from 'vue-drag-drop'
 
 export default {
   props: {
@@ -333,11 +412,16 @@ export default {
     RealtimeBlackboard,
     BaseButton,
     BaseIconButton,
-
     VideoConferenceRoom,
     ZoomChat,
-
-    InfiniteTutoring
+    InviteFriends,
+    DoodleAnimation,
+    DoodleVideo,
+    Drag,
+    Drop,
+    RenderlessFetchBlackboardDoc,
+    RenderlessFetchStrokes,
+    ReusableTextEditor
   },
   mixins: [
     DatabaseHelpersMixin
@@ -358,13 +442,18 @@ export default {
       isClearPDFsPopupOpen: false,
       isRoomStatusPopupOpen: false,
       isRenameRoomPopupOpen: false,
-      isInfiniteTutoringPopupOpen: false,
+      isInviteFriendsPopupOpen: false,
 
       titleOfExplCollection: "",
       newRoomStatus: "",
       newRoomName: "",
 
-      isChatOpen: false
+      isChatOpen: false,
+
+      isEditPopupOpen: false,
+      refOfExplEdited: null,
+      newTitle: '',
+      newDescriptionHtml: '',
     }
   },
   computed: {
@@ -372,6 +461,7 @@ export default {
       "user",
       "mitClass",
       "session",
+      'micStream',
       "isBoardFullscreen",
       "currentTool",
       "currentBoardID",
@@ -425,6 +515,100 @@ export default {
     }
   },
   methods: { 
+    async handleDrop ({ droppedTo }, { draggedFrom }) {
+      const i = draggedFrom
+      const j = droppedTo
+      const blackboardsCopy = [...this.room.blackboards]
+      const draggedBoardID = blackboardsCopy[i]
+
+      // remove 
+      const removeOneElement = 1
+      blackboardsCopy.splice(i, removeOneElement)
+
+      // insert
+      const removeNoElement = 0
+      blackboardsCopy.splice(j, removeNoElement, draggedBoardID)  
+        
+      // make an update operation
+      await this.roomRef.update({
+        blackboards: blackboardsCopy
+      })
+      this.$root.$emit('show-snackbar', 'Rearranged order.')
+    },
+    toggleCollabStatus () {
+      if (this.room.status === 'Down to collaborate') {
+        this.newRoomStatus = ''
+      } else {
+        this.newRoomStatus = 'Down to collaborate'
+      }
+      this.updateRoomStatus()
+      this.isRoomStatusPopupOpen = false 
+    },
+    showEditPopup (refOfExplEdited, title, descriptionHtml) {
+      this.refOfExplEdited = refOfExplEdited
+      this.isEditPopupOpen = true
+      // pre-populate the values
+      if (title) this.newTitle = title
+      if (descriptionHtml) this.newDescriptionHtml = descriptionHtml
+    },
+    async editTitleAndDescription () {
+      await this.refOfExplEdited.update({
+        title: this.newTitle,
+        descriptionHtml: this.newDescriptionHtml
+      })
+      this.newTitle = ''
+      this.newDescriptionHtml = ''
+      this.refOfExplEdited = null
+      this.isEditPopupOpen = false
+    },
+    // incrementNumOfViewsOnExpl () {
+    //   const ref = db.doc(`${this.expl.ref}`);
+    //   ref.update({
+    //     views: firebase.firestore.FieldValue.increment(1)
+    //   });
+    // },
+    // TODO: 
+    //   - be able to delete blackboards
+    //   - delete the blackboard doc itself 
+    //   - delete its subcollections with Cloud Functions
+    // the reference to the blackboard is deleted from the parent: try to extract the id and do an array remove operation
+    async deleteAnimation ({ creator, animationRef }) {
+      if (creator.email && creator.email !== this.user.email) {
+        alert('You need to be the creator to unsave this animation')
+        return
+      }
+      await animationRef.update({ 
+        creator: firebase.firestore.FieldValue.delete(),
+        date: firebase.firestore.FieldValue.delete()
+      })
+      this.$root.$emit('show-snackbar', 'Reverted animation to blackboard')
+    },
+    /**
+     * Resets it into a blackboard (no need to delete the strokes)
+     *   - note: this operation can't be atomic because db.batch() only works for Firestore and not for Storage
+     */
+    async deleteVideo ({ videoRef, creator, audioDownloadURL }) {
+      // check permissions for delete 
+      if (creator.email && creator.email !== this.user.email) {
+        alert('Not allowed to delete video')
+        return
+      }
+      const storage = firebase.storage()
+      const audioRef = storage.refFromURL(audioDownloadURL);  
+      audioRef.delete().then(async () => {
+      console.log('successfully deleted the audio')
+        // File deleted successfully
+        await videoRef.update({ 
+          audioDownloadURL: '',
+          creator: firebase.firestore.FieldValue.delete(),
+          date: firebase.firestore.FieldValue.delete()
+        })
+        console.log('removed reference to audioURL and deleted creator and date fields')
+        this.$root.$emit('show-snackbar', 'Reverted video to blackboard')
+      }).catch((error) => {
+        // Uh-oh, an error occurred!
+      });
+    },
     async deleteThisRoom () {
       // warning: the strokes will remain, but find a fix later as Feynman is way more likely to die from other things
       const batch = db.batch();
@@ -440,20 +624,11 @@ export default {
       await batch.commit(); 
       this.$root.$emit("show-snackbar", "Room was deleted.")
     },
-    // TODO: commented out because it doesn't work on iOS Safari and also 
-    // causes the screenshare to be offset incorrectly
-    // async requestFullscreenFromDevice () {
-    //   const blackboardElem = document.getElementById("current-blackboard"); 
-    //   if (! document.fullscreenElement) {
-    //     await blackboardElem.requestFullscreen();
-    //   } else {
-    //     document.exitFullscreen(); 
-    //   }
-    // },
     async createNewBoard () {
       const roomRef = db.doc(`classes/${this.classID}/rooms/${this.roomID}`);
       const blackboardsRef = db.collection(`classes/${this.classID}/blackboards`);
       const newID = getRandomId();  
+      // TODO: use batch operation
       await Promise.all([
         blackboardsRef.doc(newID).set({
           roomType: '',
@@ -592,3 +767,23 @@ export default {
 };
 </script>
 
+<style scoped>
+/* .html-paragraph-styles >>> h2 {
+  font-size: 2rem
+} */
+
+.html-paragraph-styles >>> p {
+  font-size: 1.1rem
+}
+
+.overlay-item {
+  position: absolute; 
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+</style>

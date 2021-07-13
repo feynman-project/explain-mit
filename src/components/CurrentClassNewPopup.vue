@@ -12,7 +12,7 @@
             <v-subheader class="px-0">Join an existing class</v-subheader>
           </v-col>
           <v-col cols="7" class="pa-0 d-flex align-center"> 
-            <TheSearchBar 
+            <CurrentClassNewPopupSearchBar 
               :items="mitClasses"
               @submit="newVal => join({ mitClass: newVal })" 
               color="accent"
@@ -85,7 +85,7 @@
 <script>
 import AuthHelpers from "@/mixins/AuthHelpers.js";
 import DatabaseHelpersMixin from "@/mixins/DatabaseHelpersMixin.js";
-import TheSearchBar from "@/components/TheSearchBar.vue";
+import CurrentClassNewPopupSearchBar from "@/components/CurrentClassNewPopupSearchBar.vue";
 import db from "@/database.js";
 import firebase from "firebase/app";
 import BasePopupButton from "@/components/BasePopupButton.vue"; 
@@ -104,7 +104,7 @@ export default {
     DatabaseHelpersMixin
   ],
   components: {
-    TheSearchBar,
+    CurrentClassNewPopupSearchBar,
     BasePopupButton,
     BaseButton
   },
@@ -137,8 +137,6 @@ export default {
       await firebase.auth().signOut(); // will trigger `onAuthStateChanged` in router.js
       this.$router.push("/");
     },
-    // fundamentally create a new class, by the way that could be why there is no growth, because
-    // there is no ability for people to open new classes and lounges
     async createNewClass () {
       if (!this.nameOfNewCommunity || !this.descriptionOfNewCommunity) {
         this.$root.$emit("show-snackbar", "You must enter both a name and a description.");

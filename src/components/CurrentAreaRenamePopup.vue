@@ -42,6 +42,7 @@ export default {
         name: this.newRoomTypeName
       });
       this.newRoomTypeName = ""; 
+      document.location.reload() // so the website refetches the updated areaDocs
     }
   }
 };

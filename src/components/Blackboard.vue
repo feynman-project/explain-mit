@@ -11,9 +11,6 @@
       :backgroundImage="backgroundImage" @update:background-image="image => $emit('update:background-image', image)"
       :currentTime="currentTime"
       :isReadOnly="false"
-      :height="height"
-      :width="width"
-      :willDownloadPDF="willDownloadPDF"
       @mounted="blackboardMethods => $emit('mounted', blackboardMethods)"
       @update:thumbnailBlob="blob => $emit('update:thumbnailBlob', blob)"
       @board-reset="$emit('board-reset')"
@@ -68,7 +65,7 @@
               @click="startRecording()" 
               icon="mdi-record" color="white" small
             >
-              Explain
+              Record
             </BaseButton>
             <BaseButton v-else @click="stopRecording()" icon="mdi-stop" color="white" small>
               Finish
@@ -152,24 +149,6 @@ export default {
     },
     backgroundImage: {
       type: Object
-    },
-    width: {
-      type: Number,
-      default () {
-        return MASSIVE_MODE_DIMENSIONS.WIDTH; 
-      }
-    },
-    height: {
-      type: Number,
-      default () {
-        return MASSIVE_MODE_DIMENSIONS.HEIGHT;
-      }
-    },
-    willDownloadPDF: {
-      type: Boolean,
-      default () {
-        return false;
-      }
     }
   },
   components: { 

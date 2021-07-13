@@ -33,7 +33,44 @@
             <v-icon slot="append" color="black" small>mdi-fast-forward</v-icon>
           </v-select>
         </v-col>
-        <v-btn @click.stop="$_toggleFullscreen()"><v-icon>mdi-fullscreen</v-icon></v-btn>
+
+        <v-col cols="auto" class="px-0 py-0">
+          <v-menu
+            :items="['Edit', 'Delete']"
+            :value="playbackSpeed"
+            @input=""
+            dense
+            solo
+            background-color="rgba(255,255,255,0.75)"
+            :hide-details="true"
+            class="my-0"
+            color="accent"
+            item-color="accent"
+          >
+            <v-icon slot="append" color="black" small>mdi-dots-vertical</v-icon>
+          </v-menu>
+        </v-col>
+        
+        <!-- delete -->
+        <v-btn @click.stop="$emit('delete')">
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+
+        <v-btn @click.stop="$emit('edit')">
+          <v-icon>mdi-pencil</v-icon>
+        </v-btn>
+
+        <!-- <v-btn @click.stop="$emit('description-edit')">
+          <v-icon>mdi-edit</v-icon>
+        </v-btn> -->
+
+        <!-- <v-btn @click.stop="">
+          <v-icon>mdi-dots-vertical</v-icon>
+        </v-btn>  -->
+
+        <!-- <v-btn @click.stop="$_toggleFullscreen()">
+          <v-icon>mdi-fullscreen</v-icon>
+        </v-btn> -->
       </div>
     </div>
   </div>
@@ -118,9 +155,10 @@ export default {
     this.handleResize = _.debounce(this.handleResize, 100); 
     window.addEventListener("resize", this.handleResize);
 
-    // quickfix
-    await this.$nextTick(); 
-    this.changePlaybackSpeed(this.playbackSpeed);
+    // quickfix for 2x speed
+    // await this.$nextTick(); 
+    // await this.$nextTick()
+    // this.changePlaybackSpeed(this.playbackSpeed);
   },
   beforeDestroy () {
     // quickfix for the previous recordings playing bug on iOS
@@ -159,10 +197,14 @@ export default {
       })
     },
     resizeVideo () {
+      // TODO: what's the difference between CanvasWrapper and VideoWrapper?
       const { CanvasWrapper, VideoWrapper } = this.$refs;
       VideoWrapper.style.width = "100%";
-      const availableWidth = VideoWrapper.offsetWidth - 20; 
-      const availableHeight = window.innerHeight - navbarHeight - audioPlayerHeight - 120;
+    
+      const availableWidth = VideoWrapper.offsetWidth
+  
+      const heightOfGapToShowGlimpseOfNextBoard = 30 // the distance between blackboards is half i.e. 10
+      const availableHeight = window.innerHeight - heightOfGapToShowGlimpseOfNextBoard
       let videoHeight; 
       let videoWidth; 
 
@@ -266,7 +308,7 @@ export default {
   width: 100%;
   height: 100%;
   z-index: -1;
-  background-color: rgb(62, 66, 66);
+  background-color: rgb(46, 49, 49);
 }
 #extra-controls {
   position: absolute;

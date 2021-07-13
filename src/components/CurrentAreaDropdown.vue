@@ -73,7 +73,6 @@ import db from "@/database.js";
 import { getRandomId } from "@/helpers.js"; 
 import DatabaseHelpersMixin from "@/mixins/DatabaseHelpersMixin.js";
 import BaseButton from "@/components/BaseButton.vue";
-import ClassLibrary from "@/pages/ClassLibrary.vue";
 import BasePopupButton from "@/components/BasePopupButton.vue"; 
 import { mapState } from "vuex";
 
@@ -89,7 +88,6 @@ export default {
     DatabaseHelpersMixin
   ],
   components: {
-    ClassLibrary,
     BaseButton,
     BasePopupButton
   },
@@ -119,12 +117,7 @@ export default {
   },
   async created () {
     // fetch once for light bandwidth usage
-    this.roomTypes = await this.$_getCollection(this.classDocRef.collection("roomTypes")); 
-
-    // for backwards compatibility
-    if (! this.currentRoomTypeDoc) {
-      this.createNewRoomType("PSET LOUNGE", this.classID);
-    }
+    this.roomTypes = await this.$_getCollection(this.classDocRef.collection("roomTypes"));
   },
   methods: {
      /**

@@ -3,9 +3,9 @@
   <!-- bottom: auto; left: auto; -->
   <!-- Note: the fixed/absolute props is a quick-fix -->
   <!-- z-index: 100 is a quickfix -->
+  <!-- :fixed="true" used to handle the iOS issue when the safari page hides the top part of Safari -->
   <v-app-bar 
-    :fixed="!$store.state.isViewingForum"
-    :absolute="$store.state.isViewingForum"
+    absolute
     elevation="5" 
     :height="toolbarHeight" 
     color="grey darken-2" 
@@ -56,9 +56,7 @@ import { BlackboardTools, toolbarHeight, ERASER_STROKE_WIDTH } from "@/CONSTANTS
 import BasePopupButton from "@/components/BasePopupButton.vue";
 import BaseButton from "@/components/BaseButton.vue";
 import PenSwatch from "@/components/BlackboardToolBarPenSwatch.vue";
-import ColorPicker from "@/components/ColorPicker.vue";
 import { mapState } from "vuex"; 
-import db from "@/database.js"; 
 
 export default {
   props: {
@@ -68,8 +66,7 @@ export default {
     Swatches, 
     BasePopupButton,
     BaseButton,
-    PenSwatch,
-    ColorPicker
+    PenSwatch
   },
   data () {
     return {
